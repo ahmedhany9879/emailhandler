@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Users Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+
+    <div class="container py-5">
+        <h2 class="mb-4">📊 Users Management</h2>
+
+        <!-- قسم الإعدادات الجديد -->
+        <div class="card p-3 mb-4 shadow-sm">
+            <h5>⚙️ System Settings</h5>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="form-label">Email Domain</label>
+                    <input type="text" id="emailDomain" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">SMTP API Key</label>
+                    <input type="text" id="smtpApiKey" class="form-control">
+                </div>
+                <div class="col-12">
+                    <button class="btn btn-success" onclick="updateSettings()">Update Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-4 shadow-sm">
+            <h5>Add New User</h5>
+            <div class="row g-2 align-items-center mt-2">
+                <div class="col-md-4">
+                    <input type="text" id="username" class="form-control" placeholder="Username">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" id="apikey" class="form-control" placeholder="API Key">
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100" onclick="addUser()">Add User</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5>All Users</h5>
+                <table class="table table-striped mt-3">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>API Key</th>
+                            <th>Emails Pulled</th>
+                            <th>Action2</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function loadSettings() {
+            fetch('/config')
+                .then(response => response.json())
+                .then(settings => {
+                    document.getElementById('emailDomain').value = settings.EMAIL_DOMAIN || '';
+                    document.getElementById('smtpApiKey').value = settings.SMTP_API_KEY || '';
+                });
+        }
+
+        function updateSettings() {
+            const newSettings = {
+                EMAIL_DOMAIN: document.getElementById('emailDomain').value,
+                SMTP_API_KEY: document.getElementById('smtpApiKey').value
+            };
+
+            fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newSettings)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Settings updated successfully!');
+                    } else {
+                        alert('Failed to update settings: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error updating settings: ' + error.message);
+                });
+        }
+
+        function loadUsers() {
+            fetch('/users')
+                .then(response => response.json())
+                .then(users => {
+                    const tbody = document.getElementById('usersTable');
+                    tbody.innerHTML = '';
+                    users.forEach(user => {
+                        const row = `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td>${user.username}</td>
+                        <td>${user.apikey}</td>
+                        <td>${user.emails_pulled}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" onclick="resetUser(${user.id})">Reset Count</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+                        tbody.innerHTML += row;
+                    });
+                });
+        }
+
+        function addUser() {
+            const username = document.getElementById('username').value;
+            const apikey = document.getElementById('apikey').value;
+
+            fetch('/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, apikey })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) alert(data.error);
+                    else {
+                        document.getElementById('username').value = '';
+                        document.getElementById('apikey').value = '';
+                        loadUsers();
+                    }
+                });
+        }
+
+        function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+
+            fetch(`/users/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadUsers();
+                    } else {
+                        alert('Failed to delete user');
+                    }
+                });
+        }
+
+        function resetUser(id) {
+            fetch(`/users/${id}/reset`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Emails count reset!');
+                        loadUsers();
+                    } else {
+                        alert('Failed to reset count');
+                    }
+                });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadUsers();
+        });
+    </script>
+
+</body>
+
+</html>
